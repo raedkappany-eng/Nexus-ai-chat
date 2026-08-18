@@ -51,14 +51,12 @@ function createStars() {
 
 // ==================== نظام النماذج ====================
 
-/**
- * تعريف النماذج المتاحة
- */
+
 const models = [
-    { id: 'gpt-4', name: 'GPT-4', color: '#00d4ff' },
-    { id: 'claude', name: 'Claude', color: '#ff6b35' },
     { id: 'gemini', name: 'Gemini', color: '#b388ff' },
-    { id: 'llama', name: 'Llama', color: '#00ff9d' }
+    { id: 'mistral_small', name: 'ChatGPT', color: '#00d4ff' },
+    { id: 'mistral_code', name: 'Code AI', color: '#00ff9d' },
+    { id: 'mistral_vision', name: 'Photo AI', color: '#ff6b35' }
 ];
 
 // النماذج المختارة حالياً
@@ -378,37 +376,53 @@ function handleLogout() {
  */
 async function loadChatHistory() {
     const token = localStorage.getItem('nexus_token');
+    const currentUsername = localStorage.getItem('nexus_username');
     const messagesContainer = document.getElementById('messages-container');
     
     messagesContainer.innerHTML = '';
     
     try {
-        // الاتصال بالـ Backend لجلب سجل المحادثات
-        /*
-        const response = await fetch('http://localhost:8000/api/chat/history', {
+        const response = await fetch('/api/messages', {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             }
         });
-        const data = await response.json();
-        */
+
+        if (!response.ok) throw new Error('فشل جلب المحادثات');
         
-        // رسالة ترحيبية افتراضية
-        addMessageToChat(
-            'مرحباً بك في Nexus AI! كيف يمكنني مساعدتك اليوم؟',
-            'bot',
-            new Date().toISOString()
-        );
+        const data = await response.json();
+        
+        if (data.length === 0) {
+            // إذا لم يكن هناك رسائل سابقة
+            addMessageToChat(
+                'مرحباً بك في Nexus AI! كيف يمكنني مساعدتك اليوم؟',
+                'bot',
+                new Date().toISOString()
+            );
+        } else {
+            // عرض الرسائل السابقة
+            data.forEach(msg => {
+                // إذا كان المرسل هو المستخدم نفسه
+                if (msg.sender === currentUsername) {
+                    addMessageToChat(msg.content, 'user', msg.timestamp);
+                } else {
+                    // إذا كان المرسل هو أحد النماذج
+                    const botKeyMatch = Object.keys(BOT_STYLES).find(key => 
+                        BOT_STYLES[key].label.toLowerCase() === msg.sender.toLowerCase()
+                    );
+                    const style = botKeyMatch ? BOT_STYLES[botKeyMatch] : {
+                        label: msg.sender, cssClass: '', color: 'var(--neon-blue)',
+                        avatar: msg.sender.charAt(0).toUpperCase()
+                    };
+                    addMessageToChat(msg.content, 'bot', msg.timestamp, style);
+                }
+            });
+        }
         
     } catch (error) {
         console.error('خطأ في تحميل سجل المحادثات:', error);
-        addMessageToChat(
-            'عذراً، حدث خطأ في تحميل سجل المحادثات.',
-            'bot',
-            new Date().toISOString()
-        );
     }
 }
 
@@ -474,6 +488,22 @@ async function sendMessage() {
     
     messageInput.value = '';
     messageInput.style.height = 'auto';
+    // تحويل النماذج المحددة إلى نص مفصول بفواصل (مثل: gemini,mistral_code)
+    const selectedBotsArray = Array.from(selectedModels);
+    const targetBotString = selectedBotsArray.length > 0 ? selectedBotsArray.join(',') : 'all';
+
+    const response = await fetch('/api/chat', {
+    method: 'POST',
+    headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+        prompt: message,
+        target_bot: targetBotString, // إرسال النماذج المختارة فقط
+        attachment: currentAttachment
+    })
+});
     
     // ملاحظة: الباك إند لا يعرف أسماء الموديلات المعروضة بالواجهة (gpt-4, claude, llama)
     // هو فقط يعرف: gemini, mistral_small, mistral_code, mistral_vision, all
@@ -487,13 +517,18 @@ async function sendMessage() {
             },
             body: JSON.stringify({
                 prompt: message,
-                target_bot: 'all'
+                target_bot: 'all',
+                attachment: currentAttachment // إرسال المرفق هنا
             })
         });
+
+        // تفريغ المرفق بعد إرساله للباك إند حتى لا يُرسل مرة أخرى بالخطأ
+        currentAttachment = null;
 
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
         }
+        // ... (باقي الكود الخاص بعرض الردود يبقى كما هو)
 
         const data = await response.json();
 
@@ -511,31 +546,49 @@ async function sendMessage() {
         addMessageToChat('عذراً، حدث خطأ في الاتصال.', 'bot', new Date().toISOString());
     }
 }
-function handleFileUpload(event) {
+// متغير لتخزين المرفق الحالي قبل إرسال الرسالة
+let currentAttachment = null;
+
+async function handleFileUpload(event) {
     const files = event.target.files;
     const token = localStorage.getItem('nexus_token');
     
     if (files.length === 0) return;
     
-    Array.from(files).forEach(file => {
-        const fileMessage = `📎 ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
-        addMessageToChat(fileMessage, 'user', new Date().toISOString());
-    });
-    
-    // /*
+    const file = files[0]; // نأخذ الملف الأول
     const formData = new FormData();
-    Array.from(files).forEach(file => {
-         formData.append('files', file);
-    });
     
-     fetch('/api/upload', {
-         method: 'POST',
-         headers: {
-         'Authorization': `Bearer ${token}`
-         },
-         body: formData
-     });
+    // لاحظ هنا: استخدام 'file' بدلاً من 'files' ليتطابق مع FastAPI
+    formData.append('file', file);
     
+    try {
+        const response = await fetch('/api/upload', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            body: formData
+        });
+
+        if (!response.ok) {
+            throw new Error('فشل رفع الملف');
+        }
+
+        const data = await response.json();
+        
+        // تخزين بيانات الملف المعادة من الباك إند
+        currentAttachment = {
+            url: data.url,
+            filename: data.filename,
+            content_type: data.content_type
+        };
+        
+        addMessageToChat(`📎 تم إرفاق المرفق: ${file.name} جاهز للإرسال.`, 'user', new Date().toISOString());
+        
+    } catch (error) {
+        console.error('خطأ في الرفع:', error);
+        addMessageToChat('عذراً، حدث خطأ أثناء رفع الملف.', 'bot', new Date().toISOString());
+    }
     
     event.target.value = '';
 }

@@ -222,50 +222,41 @@ async def chat_endpoint(data: ChatPrompt, current_user: dict = Depends(get_curre
 
         responses = {}
 
-        if target_bot == "gemini":
-            gemini_res = await ask_gemini(prompt_for_ai, image_bytes=image_bytes, image_mime=image_mime)
-            responses["gemini"] = gemini_res
-            save_message(user_id, "Gemini", gemini_res, target_bot)
+       
+        requested_bots = [b.strip() for b in target_bot.split(",") if b.strip()]
+        
+        if "all" in requested_bots or not requested_bots:
+            requested_bots = ["gemini", "mistral_small", "mistral_code", "mistral_vision"]
 
-        elif target_bot == "mistral_small":
-            mistral_s_res = await ask_mistral_small(prompt_for_ai, image_bytes=image_bytes, image_mime=image_mime)
-            responses["mistral_small"] = mistral_s_res
-            save_message(user_id, "mistral small", mistral_s_res, target_bot)
+        tasks = {}
+        if "gemini" in requested_bots:
+            tasks["gemini"] = ask_gemini(prompt_for_ai, image_bytes=image_bytes, image_mime=image_mime)
+        if "mistral_small" in requested_bots:
+            tasks["mistral_small"] = ask_mistral_small(prompt_for_ai, image_bytes=image_bytes, image_mime=image_mime)
+        if "mistral_code" in requested_bots:
+            tasks["mistral_code"] = ask_mistral_code(prompt_for_ai, image_bytes=image_bytes, image_mime=image_mime)
+        if "mistral_vision" in requested_bots:
+            tasks["mistral_vision"] = ask_mistral_vision(prompt_for_ai, image_bytes=image_bytes, image_mime=image_mime)
 
-        elif target_bot == "mistral_code":
-            mistral_c_res = await ask_mistral_code(prompt_for_ai, image_bytes=image_bytes, image_mime=image_mime)
-            responses["mistral_code"] = mistral_c_res
-            save_message(user_id, "Mistral Code", mistral_c_res, target_bot)
-        elif target_bot =="mistral_vision":
-            mistral_v_res=await ask_mistral_vision(prompt_for_ai, image_bytes=image_bytes, image_mime=image_mime)
-            responses["mistral_vision"]=mistral_v_res
-            save_message(user_id,"Mistral Vision",mistral_v_res,target_bot)
-        else:
-            gemini_res, mistral_s_res, mistral_v_res, mistral_c_res = await asyncio.gather(
-                ask_gemini(prompt_for_ai, image_bytes=image_bytes, image_mime=image_mime),
-                ask_mistral_small(prompt_for_ai, image_bytes=image_bytes, image_mime=image_mime),
-                ask_mistral_vision(prompt_for_ai, image_bytes=image_bytes, image_mime=image_mime),
-                ask_mistral_code(prompt_for_ai, image_bytes=image_bytes, image_mime=image_mime),
-                return_exceptions=True
-            )
+        results = await asyncio.gather(*tasks.values(), return_exceptions=True)
+        
+        responses = {}
+        display_names = {
+            "gemini": "Gemini",
+            "mistral_small": "ChatGpt",
+            "mistral_code": "Code_ai",
+            "mistral_vision": "photo_ai"
+        }
 
-            responses["gemini"] = str(gemini_res)
-            responses["mistral_small"] = str(mistral_s_res)
-            responses["mistral_vision"] = str(mistral_v_res)
-            responses["mistral_code"]=str(mistral_c_res)
-            display_names={
-                "gemini":"gemini",
-                "mistral_small":"ChatGpt",
-                "mistral_code":"Code_ai",
-                "mistral_vision":"photo_ai"
-            }
+        for bot_key, result in zip(tasks.keys(), results):
+            bot_reply = str(result)
+            responses[bot_key] = bot_reply
+            friendly_name = display_names.get(bot_key, bot_key)
+            save_message(user_id, friendly_name, bot_reply, target_bot)
 
-            for bot_key, bot_reply in responses.items():
-                friendly_name=display_names.get(bot_key,bot_key)
-                save_message(user_id, friendly_name, str(bot_reply), target_bot)
+            return {"responses": responses}
 
-        return {"responses": responses}
-
+            
     except Exception as e:
         print(f"[/api/chat] Unexpected error: {type(e).__name__}: {e}")
         raise HTTPException(status_code=500, detail=f"خطأ داخلي غير متوقع: {type(e).__name__}: {e}")
