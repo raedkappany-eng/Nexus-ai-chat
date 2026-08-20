@@ -216,7 +216,7 @@ function showSplashScreen(username) {
                     setTimeout(() => {
                         enterChatScreen(username);
                     }, 2000);
-                }, 500);
+                }, 50);
             }, 1000);
         }
     }
@@ -291,7 +291,6 @@ async function handleLogin(event) {
     loginBtn.classList.add('exploding');
     
     try {
-        // /api/login يتوقع بيانات form-urlencoded (OAuth2PasswordRequestForm) وليس JSON
         const response = await fetch('/api/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -332,7 +331,6 @@ async function handleRegister(event) {
     registerBtn.classList.add('exploding');
     
     try {
-        // ملاحظة: الباك إند لا يملك حقل email، فقط username و password
         const response = await fetch('/api/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -372,7 +370,6 @@ function handleLogout() {
 
 /**
  * تحميل سجل المحادثات من الـ Backend
- * هذه الدالة تتصل بـ FastAPI لجلب الرسائل السابقة
  */
 async function loadChatHistory() {
     const token = localStorage.getItem('nexus_token');
@@ -395,20 +392,16 @@ async function loadChatHistory() {
         const data = await response.json();
         
         if (data.length === 0) {
-            // إذا لم يكن هناك رسائل سابقة
             addMessageToChat(
                 'مرحباً بك في Nexus AI! كيف يمكنني مساعدتك اليوم؟',
                 'bot',
                 new Date().toISOString()
             );
         } else {
-            // عرض الرسائل السابقة
             data.forEach(msg => {
-                // إذا كان المرسل هو المستخدم نفسه
                 if (msg.sender === currentUsername) {
                     addMessageToChat(msg.content, 'user', msg.timestamp);
                 } else {
-                    // إذا كان المرسل هو أحد النماذج
                     const botKeyMatch = Object.keys(BOT_STYLES).find(key => 
                         BOT_STYLES[key].label.toLowerCase() === msg.sender.toLowerCase()
                     );
@@ -426,10 +419,6 @@ async function loadChatHistory() {
     }
 }
 
-/**
- * تنسيقات كل نموذج (اللون + حرف الأفاتار) — تُستخدم لتلوين إطار الرسالة والدائرة
- * بشكل مطابق للون النيون الخاص بكل نموذج
- */
 const BOT_STYLES = {
     gemini:         { label: 'Gemini',  cssClass: 'model-gemini',  color: 'var(--neon-purple)', avatar: 'G' },
     mistral_small:  { label: 'ChatGpt', cssClass: 'model-chatgpt', color: 'var(--neon-blue)',   avatar: 'C' },
@@ -437,11 +426,6 @@ const BOT_STYLES = {
     mistral_vision: { label: 'photo_ai',cssClass: 'model-photo',   color: 'var(--neon-orange)', avatar: '📷' }
 };
 
-/**
- * إضافة رسالة إلى واجهة الدردشة
- * modelInfo (اختياري): كائن من BOT_STYLES، يُستخدم فقط لرسائل البوت لتلوين
- * الإطار وإظهار دائرة الأفاتار واسم النموذج فوق الرسالة
- */
 function addMessageToChat(content, role, timestamp, modelInfo) {
     const messagesContainer = document.getElementById('messages-container');
     
@@ -486,20 +470,15 @@ async function sendMessage() {
     
     const token = localStorage.getItem('nexus_token');
     
-    // 1. عرض رسالة المستخدم في الواجهة فوراً
     addMessageToChat(message, 'user', new Date().toISOString());
     
     messageInput.value = '';
     messageInput.style.height = 'auto';
 
-    // 2. تجهيز البيانات
     const selectedBotsArray = Array.from(selectedModels);
-    // تأكد أن النماذج المختارة هي التي تُرسل للباك إند
-    
     const targetBotString = selectedBotsArray.length > 0 ? selectedBotsArray.join(',') : 'all';
-    console.log("Selected Bots:", targetBotString);
+    
     try {
-        // 3. إرسال الطلب مرة واحدة فقط
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: {
@@ -513,12 +492,10 @@ async function sendMessage() {
             })
         });
 
-        // 4. تفريغ المرفق بعد إرساله
         currentAttachment = null;
         removeAttachment();
 
         if (!response.ok) {
-            // معالجة خطأ 401 بشكل خاص
             if (response.status === 401) {
                 throw new Error('جلسة العمل منتهية، يرجى تسجيل الدخول مرة أخرى.');
             }
@@ -527,7 +504,6 @@ async function sendMessage() {
 
         const data = await response.json();
 
-        // 5. عرض الردود
         if (data.responses) {
             Object.entries(data.responses).forEach(([botKey, reply]) => {
                 const style = BOT_STYLES[botKey] || {
@@ -543,7 +519,7 @@ async function sendMessage() {
         addMessageToChat('عذراً، ' + error.message, 'bot', new Date().toISOString());
     }
 }
-// متغير لتخزين المرفق الحالي قبل إرسال الرسالة
+
 let currentAttachment = null;
 
 async function handleFileUpload(event) {
@@ -552,10 +528,9 @@ async function handleFileUpload(event) {
     
     if (files.length === 0) return;
     
-    const file = files[0]; // نأخذ الملف الأول
+    const file = files[0];
     const formData = new FormData();
     
-    // لاحظ هنا: استخدام 'file' بدلاً من 'files' ليتطابق مع FastAPI
     formData.append('file', file);
     
     try {
@@ -573,7 +548,6 @@ async function handleFileUpload(event) {
 
         const data = await response.json();
         
-        // تخزين بيانات الملف المعادة من الباك إند
         currentAttachment = {
             url: data.url,
             filename: data.filename,
@@ -594,7 +568,6 @@ async function handleFileUpload(event) {
 
 document.addEventListener('DOMContentLoaded', init);
 
-// تصدير الدوال للاستخدام الخارجي
 window.NexusAI = {
     init,
     sendMessage,
@@ -602,6 +575,7 @@ window.NexusAI = {
     toggleModel,
     handleLogout
 };
+
 // --- أكواد معاينة المرفقات ---
 const fileInput = document.getElementById('file-input');
 const previewContainer = document.getElementById('attachment-preview-container');
@@ -615,7 +589,7 @@ fileInput.addEventListener('change', function(e) {
         const reader = new FileReader();
         reader.onload = function(event) {
             previewImg.src = event.target.result; 
-            previewContainer.style.display = 'flex'; // استخدام flex ليتوسط الزر
+            previewContainer.style.display = 'flex';
         };
         reader.readAsDataURL(file);
     }
