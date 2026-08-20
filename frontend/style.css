@@ -800,3 +800,82 @@ body {
         padding: 15px;
     }
 }
+/* ========================================= */
+/* قواعد مخصصة لشاشات الجوال */
+/* ========================================= */
+@media (max-width: 768px) {
+    /* تصغير مساحات الشريط العلوي */
+    .chat-header {
+        padding: 10px 15px;
+    }
+    .header-title {
+        font-size: 1.2rem;
+    }
+    .mini-logo {
+        width: 30px;
+        height: 30px;
+    }
+    .logout-btn {
+        padding: 6px 12px;
+        font-size: 0.9rem;
+    }
+
+    /* تصغير مساحات أزرار النماذج */
+    .models-container {
+        padding: 10px 15px;
+    }
+    .models-list {
+        gap: 8px;
+    }
+    .model-card {
+        padding: 8px 12px;
+    }
+    .model-name {
+        font-size: 0.9rem;
+    }
+
+    /* توسيع منطقة الرسائل للجوال */
+    .messages-container {
+        padding: 10px 15px;
+        gap: 15px;
+    }
+}
+#attachment-preview-container {
+    position: absolute;
+    bottom: 100%;
+    left: 20px;
+    margin-bottom: 10px;
+    background: var(--bg-darker);
+    border: 1px solid var(--neon-blue);
+    border-radius: 12px;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    z-index: 10;
+}
+
+#attachment-preview-img {
+    max-width: 60px;
+    max-height: 60px;
+    border-radius: 8px;
+    object-fit: cover;
+}
+
+#remove-attachment-btn {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ff4757;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}

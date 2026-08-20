@@ -254,7 +254,7 @@ async def chat_endpoint(data: ChatPrompt, current_user: dict = Depends(get_curre
             friendly_name = display_names.get(bot_key, bot_key)
             save_message(user_id, friendly_name, bot_reply, target_bot)
 
-            return {"responses": responses}
+        return {"responses": responses}
 
             
     except Exception as e:

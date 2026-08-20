@@ -477,6 +477,7 @@ function addMessageToChat(content, role, timestamp, modelInfo) {
 /**
  * إرسال رسالة إلى الـ Backend
  */
+
 async function sendMessage() {
     const messageInput = document.getElementById('message-input');
     const message = messageInput.value.trim();
@@ -484,31 +485,21 @@ async function sendMessage() {
     if (!message) return;
     
     const token = localStorage.getItem('nexus_token');
+    
+    // 1. عرض رسالة المستخدم في الواجهة فوراً
     addMessageToChat(message, 'user', new Date().toISOString());
     
     messageInput.value = '';
     messageInput.style.height = 'auto';
-    // تحويل النماذج المحددة إلى نص مفصول بفواصل (مثل: gemini,mistral_code)
-    const selectedBotsArray = Array.from(selectedModels);
-    const targetBotString = selectedBotsArray.length > 0 ? selectedBotsArray.join(',') : 'all';
 
-    const response = await fetch('/api/chat', {
-    method: 'POST',
-    headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-        prompt: message,
-        target_bot: targetBotString, // إرسال النماذج المختارة فقط
-        attachment: currentAttachment
-    })
-});
+    // 2. تجهيز البيانات
+    const selectedBotsArray = Array.from(selectedModels);
+    // تأكد أن النماذج المختارة هي التي تُرسل للباك إند
     
-    // ملاحظة: الباك إند لا يعرف أسماء الموديلات المعروضة بالواجهة (gpt-4, claude, llama)
-    // هو فقط يعرف: gemini, mistral_small, mistral_code, mistral_vision, all
-    // لذلك مؤقتاً نرسل "all" ليردّ كل الموديلات الحقيقية المتاحة بالباك إند.
+    const targetBotString = selectedBotsArray.length > 0 ? selectedBotsArray.join(',') : 'all';
+    console.log("Selected Bots:", targetBotString);
     try {
+        // 3. إرسال الطلب مرة واحدة فقط
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: {
@@ -517,33 +508,39 @@ async function sendMessage() {
             },
             body: JSON.stringify({
                 prompt: message,
-                target_bot: 'all',
-                attachment: currentAttachment // إرسال المرفق هنا
+                target_bot: targetBotString, 
+                attachment: currentAttachment
             })
         });
 
-        // تفريغ المرفق بعد إرساله للباك إند حتى لا يُرسل مرة أخرى بالخطأ
+        // 4. تفريغ المرفق بعد إرساله
         currentAttachment = null;
+        removeAttachment();
 
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
+            // معالجة خطأ 401 بشكل خاص
+            if (response.status === 401) {
+                throw new Error('جلسة العمل منتهية، يرجى تسجيل الدخول مرة أخرى.');
+            }
+            throw new Error(`خطأ في الخادم: ${response.status}`);
         }
-        // ... (باقي الكود الخاص بعرض الردود يبقى كما هو)
 
         const data = await response.json();
 
-        // شكل الرد من الباك إند: { responses: { gemini: "...", mistral_small: "...", ... } }
-        Object.entries(data.responses || {}).forEach(([botKey, reply]) => {
-            const style = BOT_STYLES[botKey] || {
-                label: botKey, cssClass: '', color: 'var(--neon-blue)',
-                avatar: botKey.charAt(0).toUpperCase()
-            };
-            addMessageToChat(reply, 'bot', new Date().toISOString(), style);
-        });
+        // 5. عرض الردود
+        if (data.responses) {
+            Object.entries(data.responses).forEach(([botKey, reply]) => {
+                const style = BOT_STYLES[botKey] || {
+                    label: botKey, cssClass: '', color: 'var(--neon-blue)',
+                    avatar: botKey.charAt(0).toUpperCase()
+                };
+                addMessageToChat(reply, 'bot', new Date().toISOString(), style);
+            });
+        }
 
     } catch (error) {
         console.error('Error:', error);
-        addMessageToChat('عذراً، حدث خطأ في الاتصال.', 'bot', new Date().toISOString());
+        addMessageToChat('عذراً، ' + error.message, 'bot', new Date().toISOString());
     }
 }
 // متغير لتخزين المرفق الحالي قبل إرسال الرسالة
@@ -605,3 +602,28 @@ window.NexusAI = {
     toggleModel,
     handleLogout
 };
+// --- أكواد معاينة المرفقات ---
+const fileInput = document.getElementById('file-input');
+const previewContainer = document.getElementById('attachment-preview-container');
+const previewImg = document.getElementById('attachment-preview-img');
+
+fileInput.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            previewImg.src = event.target.result; 
+            previewContainer.style.display = 'flex'; // استخدام flex ليتوسط الزر
+        };
+        reader.readAsDataURL(file);
+    }
+});
+
+function removeAttachment() {
+    previewContainer.style.display = 'none';
+    previewImg.src = '';
+    fileInput.value = ''; 
+}
+// -----------------------------

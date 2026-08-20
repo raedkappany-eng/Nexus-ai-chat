@@ -125,10 +125,18 @@
             <!-- سيتم عرض الرسائل هنا -->
         </div>
 
-        <!-- منطقة إدخال الرسائل -->
+<!-- منطقة إدخال الرسائل -->
         <div class="input-container">
+            
+            <!-- 1. أضفنا حاوية المعاينة هنا لكي تظهر فوق شريط الكتابة مباشرة -->
+            <div id="attachment-preview-container" style="display: none;">
+                <img id="attachment-preview-img" src="" alt="Preview">
+                <button id="remove-attachment-btn" onclick="removeAttachment()">×</button>
+            </div>
+
             <div class="input-wrapper" id="input-wrapper">
-                <button id="attach-btn" class="attach-btn" title="إرفاق ملف">
+                <!-- 2. ربطنا زر المشبك بفتح حقل الملفات المخفي -->
+                <button id="attach-btn" class="attach-btn" title="إرفاق ملف" onclick="document.getElementById('file-input').click()">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                         <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                     </svg>
@@ -140,10 +148,7 @@
                     </svg>
                 </button>
             </div>
-            <input type="file" id="file-input" multiple hidden>
+            
+            <!-- 3. أضفنا accept="image/*" ليفتح الاستديو والكاميرا في الجوال -->
+            <input type="file" id="file-input" accept="image/*,.pdf,.txt,.doc" hidden>
         </div>
-    </div>
-
-    <script src="/static/script.js"></script>
-</body>
-</html>
